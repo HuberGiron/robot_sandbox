@@ -11,7 +11,7 @@
     <div>
       <div class="eyebrow">Mecatrónica IBERO · MQTT</div>
       <h1>Robot Sandbox</h1>
-      <p class="subtitle">Simulación web de hasta 4 robots uniciclo controlados por objetivos recibidos vía MQTT.</p>
+      <p class="subtitle">Hasta 4 robots uniciclo en el mismo plano, habilitados individualmente y controlados por MQTT.</p>
     </div>
     <div id="mqttBadge" class="status-badge offline">MQTT desconectado</div>
   </header>
@@ -20,12 +20,10 @@
     <aside class="panel controls-panel">
       <section class="section">
         <h2>Conexión MQTT</h2>
-
         <label class="field">
           <span>Broker WebSocket</span>
           <input id="brokerUrl" type="text" value="wss://mqtt.mecatronica-ibero.mx/" spellcheck="false">
         </label>
-
         <div class="two-col">
           <label class="field">
             <span>Usuario <small>(opcional)</small></span>
@@ -36,53 +34,35 @@
             <input id="mqttPassword" type="password" autocomplete="current-password">
           </label>
         </div>
-
         <div class="button-row">
           <button id="connectBtn" class="primary">Conectar</button>
           <button id="disconnectBtn" disabled>Desconectar</button>
         </div>
-
-        <p class="hint">
-          Para web pública se recomienda WSS. Los tópicos por defecto usan <code>public/#</code>.
-        </p>
-      </section>
-
-      <section class="section">
-        <h2>Sandbox</h2>
-
-        <label class="field">
-          <span>Número de robots</span>
-          <select id="robotCount">
-            <option value="1">1 robot</option>
-            <option value="2">2 robots</option>
-            <option value="3">3 robots</option>
-            <option value="4" selected>4 robots</option>
-          </select>
-        </label>
-
-        <div class="button-row">
-          <button id="resetBtn">Reiniciar poses</button>
-          <button id="clearTrailsBtn">Limpiar trayectorias</button>
-        </div>
+        <p class="hint">Los tópicos por defecto usan <code>public/#</code>. Cada robot habilitado puede tener su propio canal o compartir uno.</p>
       </section>
 
       <section class="section">
         <div class="section-title-row">
           <h2>Robots</h2>
-          <span class="hint">Cada robot escucha su propio tópico</span>
+          <span class="hint">R1 inicia habilitado</span>
         </div>
         <div id="robotCards" class="robot-cards"></div>
+        <div class="button-row sandbox-actions">
+          <button id="resetBtn">Reiniciar poses</button>
+          <button id="clearTrailsBtn">Limpiar trayectorias</button>
+          <button id="clearChartsBtn">Limpiar gráficas</button>
+        </div>
       </section>
 
       <section class="section">
-        <details>
+        <details open>
           <summary>Formato MQTT</summary>
           <div class="details-content">
-            <p>Publica un JSON con la posición deseada:</p>
+            <p>Posición deseada:</p>
             <pre>{"x": 250, "y": -100}</pre>
             <p>También se acepta:</p>
             <pre>{"goal": {"x": 250, "y": -100}}</pre>
-            <p>Las unidades del escenario son milímetros.</p>
+            <p>Unidades: milímetros.</p>
           </div>
         </details>
       </section>
@@ -110,8 +90,25 @@
     </section>
   </main>
 
+  <section class="charts-shell">
+    <div class="chart-card">
+      <h2>Error vs Tiempo</h2>
+      <div class="chart-wrap"><canvas id="errorChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h2>Posición vs Tiempo</h2>
+      <div class="chart-wrap"><canvas id="positionChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h2>Control vs Tiempo</h2>
+      <div class="chart-wrap"><canvas id="controlChart"></canvas></div>
+    </div>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <script src="robot.js"></script>
+  <script src="charts.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
