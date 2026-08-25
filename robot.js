@@ -1,128 +1,105 @@
 class UnicycleRobot {
-  constructor({
-    id,
-    x = 0,
-    y = 0,
-    thetaDeg = 0,
-    color = "#333333",
-    lookahead = 50,
-    gain = 0.9,
-    dt = 0.02
-  }) {
+  constructor({ id, startX = 0, startY = 0, thetaDeg = 0, color = '#333333', l = 50, k = 0.5, dt = 0.05 }) {
     this.id = id;
     this.color = color;
-
-    this.defaultPose = { x, y, thetaDeg };
-    this.x = x;
-    this.y = y;
-    this.theta = thetaDeg * Math.PI / 180;
-
-    this.lookahead = lookahead;
-    this.gain = gain;
+    this.l = l;
+    this.k = k;
     this.dt = dt;
-
-    this.goal = { x, y };
+    this.defaultPose = { startX, startY, thetaDeg };
+    this.trajectory = [];
+    this.maxTrajectoryPoints = 5000;
     this.lastCommandAt = null;
     this.lastPayload = null;
-
+    this.goal = { x: startX, y: startY };
     this.v = 0;
     this.w = 0;
-    this.error = 0;
-
-    this.trajectory = [];
-    this.maxTrajectoryPoints = 2500;
+    this.ex = 0;
+    this.ey = 0;
     this.resetPose();
+  }
+
+  setInitialConditionsFromExtension(xExt, yExt, thetaDeg) {
+    this.theta = thetaDeg * Math.PI / 180;
+    this.x = xExt - this.l * Math.cos(this.theta);
+    this.y = yExt - this.l * Math.sin(this.theta);
+    this.trajectory = [{ x: xExt, y: yExt }];
   }
 
   resetPose() {
     const p = this.defaultPose;
-    this.x = p.x;
-    this.y = p.y;
-    this.theta = p.thetaDeg * Math.PI / 180;
-    this.goal = { x: p.x, y: p.y };
+    this.setInitialConditionsFromExtension(p.startX, p.startY, p.thetaDeg);
+    this.goal = { x: p.startX, y: p.startY };
     this.v = 0;
     this.w = 0;
-    this.error = 0;
-    this.clearTrajectory();
-  }
-
-  setDefaultPose(x, y, thetaDeg) {
-    this.defaultPose = { x, y, thetaDeg };
+    this.ex = 0;
+    this.ey = 0;
+    this.lastCommandAt = null;
+    this.lastPayload = null;
   }
 
   clearTrajectory() {
-    const p = this.getControlPoint();
-    this.trajectory = [{ x: p.x, y: p.y }];
+    const ext = this.getExtensionPoint();
+    this.trajectory = [{ x: ext.x, y: ext.y }];
   }
 
   setGoal(x, y, payload = null) {
     if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
-    this.goal.x = x;
-    this.goal.y = y;
+    this.goal = { x, y };
     this.lastCommandAt = Date.now();
     this.lastPayload = payload;
     return true;
   }
 
-  getControlPoint() {
+  calculateControl(xs, ys) {
+    const xExt = this.x + this.l * Math.cos(this.theta);
+    const yExt = this.y + this.l * Math.sin(this.theta);
+
+    const ex = xExt - xs;
+    const ey = yExt - ys;
+    const ux = -this.k * ex;
+    const uy = -this.k * ey;
+
+    const c = Math.cos(this.theta);
+    const s = Math.sin(this.theta);
+
+    const V = c * ux + s * uy;
+    const W = (-s * ux + c * uy) / this.l;
+
+    this.theta += W * this.dt;
+    this.x += V * Math.cos(this.theta) * this.dt;
+    this.y += V * Math.sin(this.theta) * this.dt;
+
+    this.v = V;
+    this.w = W;
+    this.ex = ex;
+    this.ey = ey;
+
+    const extNow = this.getExtensionPoint();
+    this.trajectory.push({ x: extNow.x, y: extNow.y });
+    if (this.trajectory.length > this.maxTrajectoryPoints + 500) {
+      this.trajectory.splice(0, this.trajectory.length - this.maxTrajectoryPoints);
+    }
+
+    return { ex, ey, V, W, v: V, w: W, controlPoint: extNow };
+  }
+
+  step() {
+    return this.calculateControl(this.goal.x, this.goal.y);
+  }
+
+  getCurrentPosition() {
+    return { x: this.x, y: this.y };
+  }
+
+  getExtensionPoint() {
     return {
-      x: this.x + this.lookahead * Math.cos(this.theta),
-      y: this.y + this.lookahead * Math.sin(this.theta)
+      x: this.x + this.l * Math.cos(this.theta),
+      y: this.y + this.l * Math.sin(this.theta)
     };
   }
 
-  step(dt = this.dt) {
-    const cp = this.getControlPoint();
-
-    const ex = this.goal.x - cp.x;
-    const ey = this.goal.y - cp.y;
-    this.error = Math.hypot(ex, ey);
-
-    // Control cartesiano proporcional sobre el punto de extensión.
-    const ux = this.gain * ex;
-    const uy = this.gain * ey;
-
-    // Inversa analítica:
-    // [ux] = [cos(theta), -l sin(theta)] [v]
-    // [uy]   [sin(theta),  l cos(theta)] [w]
-    const c = Math.cos(this.theta);
-    const s = Math.sin(this.theta);
-    const l = this.lookahead;
-
-    let v = c * ux + s * uy;
-    let w = (-s * ux + c * uy) / l;
-
-    // Límites numéricos para mantener una simulación estable y legible.
-    const maxV = 260;      // mm/s
-    const maxW = 3.2;      // rad/s
-    v = Math.max(-maxV, Math.min(maxV, v));
-    w = Math.max(-maxW, Math.min(maxW, w));
-
-    // Zona muerta pequeña cerca del objetivo.
-    if (this.error < 2.0) {
-      v = 0;
-      w = 0;
-    }
-
-    this.v = v;
-    this.w = w;
-
-    // Modelo cinemático del uniciclo:
-    // x_dot = v cos(theta)
-    // y_dot = v sin(theta)
-    // theta_dot = w
-    this.x += v * Math.cos(this.theta) * dt;
-    this.y += v * Math.sin(this.theta) * dt;
-    this.theta += w * dt;
-
-    // Normaliza theta a [-pi, pi].
-    this.theta = Math.atan2(Math.sin(this.theta), Math.cos(this.theta));
-
-    const p = this.getControlPoint();
-    this.trajectory.push({ x: p.x, y: p.y });
-    if (this.trajectory.length > this.maxTrajectoryPoints) {
-      this.trajectory.splice(0, this.trajectory.length - this.maxTrajectoryPoints);
-    }
+  getTrajectory() {
+    return this.trajectory;
   }
 
   getState() {
@@ -134,8 +111,10 @@ class UnicycleRobot {
       thetaDeg: this.theta * 180 / Math.PI,
       v: this.v,
       w: this.w,
-      error: this.error,
-      goal: { ...this.goal }
+      ex: this.ex,
+      ey: this.ey,
+      goal: { ...this.goal },
+      controlPoint: this.getExtensionPoint()
     };
   }
 }
