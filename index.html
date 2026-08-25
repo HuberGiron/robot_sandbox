@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MQTT Robot Sandbox</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">Mecatrónica IBERO · MQTT</div>
+      <h1>Robot Sandbox</h1>
+      <p class="subtitle">Simulación web de hasta 4 robots uniciclo controlados por objetivos recibidos vía MQTT.</p>
+    </div>
+    <div id="mqttBadge" class="status-badge offline">MQTT desconectado</div>
+  </header>
+
+  <main class="layout">
+    <aside class="panel controls-panel">
+      <section class="section">
+        <h2>Conexión MQTT</h2>
+
+        <label class="field">
+          <span>Broker WebSocket</span>
+          <input id="brokerUrl" type="text" value="wss://mqtt.mecatronica-ibero.mx/" spellcheck="false">
+        </label>
+
+        <div class="two-col">
+          <label class="field">
+            <span>Usuario <small>(opcional)</small></span>
+            <input id="mqttUser" type="text" autocomplete="username">
+          </label>
+          <label class="field">
+            <span>Contraseña <small>(opcional)</small></span>
+            <input id="mqttPassword" type="password" autocomplete="current-password">
+          </label>
+        </div>
+
+        <div class="button-row">
+          <button id="connectBtn" class="primary">Conectar</button>
+          <button id="disconnectBtn" disabled>Desconectar</button>
+        </div>
+
+        <p class="hint">
+          Para web pública se recomienda WSS. Los tópicos por defecto usan <code>public/#</code>.
+        </p>
+      </section>
+
+      <section class="section">
+        <h2>Sandbox</h2>
+
+        <label class="field">
+          <span>Número de robots</span>
+          <select id="robotCount">
+            <option value="1">1 robot</option>
+            <option value="2">2 robots</option>
+            <option value="3">3 robots</option>
+            <option value="4" selected>4 robots</option>
+          </select>
+        </label>
+
+        <div class="button-row">
+          <button id="resetBtn">Reiniciar poses</button>
+          <button id="clearTrailsBtn">Limpiar trayectorias</button>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-title-row">
+          <h2>Robots</h2>
+          <span class="hint">Cada robot escucha su propio tópico</span>
+        </div>
+        <div id="robotCards" class="robot-cards"></div>
+      </section>
+
+      <section class="section">
+        <details>
+          <summary>Formato MQTT</summary>
+          <div class="details-content">
+            <p>Publica un JSON con la posición deseada:</p>
+            <pre>{"x": 250, "y": -100}</pre>
+            <p>También se acepta:</p>
+            <pre>{"goal": {"x": 250, "y": -100}}</pre>
+            <p>Las unidades del escenario son milímetros.</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="section">
+        <h2>Log MQTT</h2>
+        <pre id="mqttLog" class="log"></pre>
+      </section>
+    </aside>
+
+    <section class="workspace">
+      <div class="canvas-toolbar">
+        <div>
+          <strong>Área de simulación</strong>
+          <span>1000 × 600 mm</span>
+        </div>
+        <div class="legend" id="legend"></div>
+      </div>
+
+      <div class="canvas-wrap">
+        <canvas id="sandboxCanvas"></canvas>
+      </div>
+
+      <div class="status-grid" id="statusGrid"></div>
+    </section>
+  </main>
+
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script src="robot.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
