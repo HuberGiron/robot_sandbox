@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 
-"""Cliente externo de ejemplo para MQTT Robot Sandbox."""
+"""Cliente externo de ejemplo para MQTT Robot Sandbox.
+
+Por defecto usa MQTT sobre WebSocket seguro (WSS) en el puerto 443,
+que es el endpoint recomendado para mqtt.mecatronica-ibero.mx.
+"""
 
 import argparse
 import json
@@ -11,16 +15,26 @@ import paho.mqtt.client as mqtt
 
 
 BROKER = "mqtt.mecatronica-ibero.mx"
-PORT = 8883
+PORT = 443
 TOPIC_TEMPLATE = "public/robot-sandbox/robot{robot}/goal"
 
 
 def build_client(username=None, password=None):
+    # WSS: MQTT transportado sobre WebSocket seguro.
     try:
-        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-    except AttributeError:
-        client = mqtt.Client()
+        client = mqtt.Client(
+            mqtt.CallbackAPIVersion.VERSION2,
+            client_id=f"robot-sandbox-python-{int(time.time())}",
+            transport="websockets",
+        )
+    except (AttributeError, TypeError):
+        # Compatibilidad con versiones antiguas de paho-mqtt.
+        client = mqtt.Client(
+            client_id=f"robot-sandbox-python-{int(time.time())}",
+            transport="websockets",
+        )
 
+    client.ws_set_options(path="/")
     client.tls_set(cert_reqs=ssl.CERT_REQUIRED)
 
     if username:
@@ -39,9 +53,9 @@ def publish_goal(client, robot, x, y):
 
 def run_demo(client):
     steps = [
-        [(1, -150,  180), (2, -150, -180), (3, 150, 180), (4, 150, -180)],
-        [(1,  250,  150), (2,  250, -150), (3,-250, 150), (4,-250, -150)],
-        [(1,    0,    0), (2,    0,    0), (3,   0,   0), (4,   0,    0)],
+        [(1, -150, 180), (2, -150, -180), (3, 150, 180), (4, 150, -180)],
+        [(1, 250, 150), (2, 250, -150), (3, -250, 150), (4, -250, -150)],
+        [(1, 0, 0), (2, 0, 0), (3, 0, 0), (4, 0, 0)],
     ]
 
     for n, goals in enumerate(steps, start=1):
@@ -64,19 +78,19 @@ def main():
 
     client = build_client(args.username, args.password)
 
-    print(f"Conectando a mqtts://{BROKER}:{PORT} ...")
+    print(f"Conectando a wss://{BROKER}/ por puerto {PORT} ...")
     client.connect(BROKER, PORT, keepalive=30)
     client.loop_start()
 
     try:
-        # Pequeña espera para completar CONNECT antes de publicar.
-        time.sleep(0.5)
+        # Da tiempo a completar CONNECT antes de publicar.
+        time.sleep(0.8)
         if args.demo:
             run_demo(client)
         else:
             publish_goal(client, args.robot, args.x, args.y)
     finally:
-        time.sleep(0.2)
+        time.sleep(0.3)
         client.loop_stop()
         client.disconnect()
 
